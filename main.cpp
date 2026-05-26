@@ -60,7 +60,6 @@ Ponto gera_ponto_aleatorio(){
     return p;
 }
 
-
 // Essa função 100% gepetada mas ta funcionando, depois temo q ver ela certinho
 void salva_segmentos_em_txt(No* raiz, const string& nome_arquivo) {
     ofstream out(nome_arquivo);
@@ -112,20 +111,90 @@ No* inicializa_arvore(){
 }
 
 
-//TODO Sessãao 6 do PDF, tem varios jeitos de decidir o melhor segmento e a gente tem q implementar um deles
-//* Essa funçãao vai retornar algum nó da arvore, e o melhor segmento vai ser entre esse nó e o pai dele
-No* melhor_segmento(No* raiz){
+//TODO função gepetada que precisa ser revisada e entendida 
+//* Função que calcula a distancia entre um ponto e um segmento
+double dist_ponto_seg(Ponto p0, No* seg){
+    if (seg == nullptr)
+    {
+        return 9999;
+    }   
 
-    if (raiz->dir != nullptr)
-        return raiz->dir;
-    else
-        return raiz->esq;
+
+    Ponto seg0 = seg->ponto;
+    Ponto seg1 = seg->pai->ponto;
+
+    // Vetor do segmento
+    double dx = seg1.x - seg0.x;
+    double dy = seg1.y - seg0.y;
+    double len2 = dx*dx + dy*dy;
+
+    // Caso o segmento seja degenerado (um ponto)
+    if (len2 == 0.0) {
+        dx = p0.x - seg0.x;
+        dy = p0.y - seg0.y;
+        return sqrt(dx*dx + dy*dy);
+    }
+
+    // Parâmetro de projeção do ponto sobre a reta suporte do segmento
+    double t = ((p0.x - seg0.x)*dx + (p0.y - seg0.y)*dy) / len2;
+
+    // Ponto do segmento mais próximo de p0
+    double prox_x, prox_y;
+    if (t < 0.0) {
+        prox_x = seg0.x;
+        prox_y = seg0.y;
+    } else if (t > 1.0) {
+        prox_x = seg1.x;
+        prox_y = seg1.y;
+    } else {
+        prox_x = seg0.x + t * dx;
+        prox_y = seg0.y + t * dy;
+    }
+
+    // Distância entre p0 e o ponto mais próximo
+    dx = p0.x - prox_x;
+    dy = p0.y - prox_y;
+    return sqrt(dx*dx + dy*dy);
 }
 
-//TODO talvez a gente tenha que fazer uma função pra qual dos nós vaai ficaar de qual lado da bifurcação
-bool decide_lado(){
+//TODO Sessãao 6 do PDF, tem varios jeitos de decidir o melhor segmento e todos dependem do score que dá pra cada segmento, esse é o maais básico e da pra melhorar
+//* Essa funçãao vai retornar algum nó da arvore, e o melhor segmento vai ser entre esse nó e o pai dele
+No* melhor_segmento(No* raiz, Ponto p){
 
-    return true;
+    if (raiz == nullptr)
+        return nullptr;
+    
+    No* menor = nullptr;
+    
+    
+    No* menor_dir = melhor_segmento(raiz->dir, p);
+
+    if (menor_dir){ //? checando se não é nulo
+
+        double dist_atual = dist_ponto_seg(p, menor);
+
+        if (dist_ponto_seg(p, menor_dir) < dist_atual) menor = menor_dir;
+    }
+
+
+    No* menor_esq = melhor_segmento(raiz->esq, p);
+
+    if (menor_esq){ //? checando se não é nulo
+
+        double dist_atual = dist_ponto_seg(p, menor);
+
+        if (dist_ponto_seg(p, menor_esq) < dist_atual) menor = menor_esq;
+        
+    }
+
+
+    if (raiz->pai){ //? Quando checamos o nó raiz devemos tambem checaar se o no pai não é nulo
+        double dist_atual = dist_ponto_seg(p, menor);
+
+        if (dist_ponto_seg(p, raiz) < dist_atual) menor = raiz;
+    }
+    
+    return menor;
 }
 
 
@@ -136,7 +205,7 @@ void adiciona_no(No* raiz){
     
     cout << "Adicionando ponto " << novo->id << ": X = " << novo->ponto.x << ", Y = " << novo->ponto.y << endl;
     
-    No* no_segmento = melhor_segmento(raiz);
+    No* no_segmento = melhor_segmento(raiz, novo->ponto);
     
     
     No* bifurcacao = new No;
@@ -182,9 +251,9 @@ int main(int argc, char *argv[]) {
 
     No* raiz = inicializa_arvore();
 
-    adiciona_no(raiz);
-    adiciona_no(raiz);
-    adiciona_no(raiz);
+    for (int i = 0; i < 50000; i++){
+        adiciona_no(raiz);
+    }
 
     salva_segmentos_em_txt(raiz, "arvore.txt");
 

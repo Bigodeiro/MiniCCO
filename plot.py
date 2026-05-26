@@ -74,7 +74,7 @@ def gerar_png(arquivo_txt, arquivo_png="arvore.png"):
     plotter.add_mesh(
         malha,
         color="black",
-        line_width=3,
+        line_width=2,
     )
     
     # Adicionar o círculo (cor cinza, mesma espessura)
@@ -85,24 +85,25 @@ def gerar_png(arquivo_txt, arquivo_png="arvore.png"):
     )
 
     # Adicionar labels com coordenadas dos pontos (apenas 1 casa decimal)
-    for i, ponto in enumerate(pontos_unicos):
-        label = f"({ponto[0]:.1f}, {ponto[1]:.1f})"
-        
-        # Adicionar ponto como um pequeno marcador
-        point_cloud = pv.PolyData([ponto])
-        plotter.add_mesh(point_cloud, color="red", point_size=8, render_points_as_spheres=True)
-        
-        # Adicionar texto ao lado do ponto
-        plotter.add_point_labels(
-            [ponto],
-            [label],
-            point_size=0,
-            font_size=12,
-            text_color="blue",
-            shadow=True,
-            always_visible=True,
-            show_points=False
-        )
+    if (False):
+        for i, ponto in enumerate(pontos_unicos):
+            label = f"({ponto[0]:.1f}, {ponto[1]:.1f})"
+            
+            # Adicionar ponto como um pequeno marcador
+            point_cloud = pv.PolyData([ponto])
+            plotter.add_mesh(point_cloud, color="red", point_size=8, render_points_as_spheres=True)
+            
+            # Adicionar texto ao lado do ponto
+            plotter.add_point_labels(
+                [ponto],
+                [label],
+                point_size=0,
+                font_size=12,
+                text_color="blue",
+                shadow=True,
+                always_visible=True,
+                show_points=False
+            )
 
     # --- Configuração fixa para coordenadas entre -10 e 10 ---
     plotter.view_xy()
