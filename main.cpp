@@ -6,7 +6,7 @@
 #include <functional>
 #include <stdexcept>
 
-#define RAIO 10.0
+double RAIO = 10.0; // Agora é uma variável global que o main pode alterar
 
 using namespace std;
 
@@ -198,10 +198,53 @@ No* melhor_segmento(No* raiz, Ponto p){
 }
 
 
+// Parte que Caua mudou: Critério de Distância 
+
+// Função auxiliar para varrer a árvore inteira e descobrir qual a menor distância do novo ponto para QUALQUER segmento existente
+void calcula_dist_minima_arvore(No* no, Ponto p, double &min_dist) {
+    if (no == nullptr) return;
+    
+    // Só calcula se o nó tiver pai (pois o segmento é formado entre o nó e seu pai)
+    if (no->pai != nullptr) {
+        double d = dist_ponto_seg(p, no);
+        if (d < min_dist) {
+            min_dist = d;
+        }
+    }
+    
+    calcula_dist_minima_arvore(no->esq, p, min_dist);
+    calcula_dist_minima_arvore(no->dir, p, min_dist);
+}
+
+// Função que encapsula a lógica de tentativas e decaimento do critério
+Ponto gera_ponto_valido(No* raiz) {
+    double d_thresh = RAIO / 2.0; // Começa com um valor alto para o critério
+    Ponto p;
+    
+    while (true) {
+        // Tenta 10 vezes achar um ponto que respeite o critério atual
+        for (int i = 0; i < 10; i++) {
+            p = gera_ponto_aleatorio();
+            double min_dist = 99999.0;
+            
+            calcula_dist_minima_arvore(raiz, p, min_dist);
+            
+            // Se o ponto ficou a uma distância maior ou igual ao limiar de TODOS os segmentos, ele é válido
+            if (min_dist >= d_thresh) {
+                return p;
+            }
+        }
+        // Se as 10 tentativas falharem, abaixa o critério em 10% e volta para o loop
+        d_thresh *= 0.9;
+    }
+}
+// 
+
+
 void adiciona_no(No* raiz){
 
     No* novo = new No;
-    novo->ponto = gera_ponto_aleatorio();
+    novo->ponto = gera_ponto_valido(raiz); // <-- Substituído o gera_ponto_aleatorio() pela nova lógica
     
     cout << "Adicionando ponto " << novo->id << ": X = " << novo->ponto.x << ", Y = " << novo->ponto.y << endl;
     
@@ -244,14 +287,21 @@ void adiciona_no(No* raiz){
 
 int main(int argc, char *argv[]) {
 
+    // Verifica se passou 2 argumentos
     if (argc != 3) {
-        cerr << "Uso: " << argv[0] << " <arg1> <arg2>" << endl;
+        cerr << "Uso: " << argv[0] << " <N_term> <R>" << endl;
         return 1;
     }
 
+    // Convertendo os argumentos de texto para números
+    int N_term = atoi(argv[1]);
+    double raio_entrada = atof(argv[2]);
+
+    RAIO = raio_entrada;
+
     No* raiz = inicializa_arvore();
 
-    for (int i = 0; i < 50000; i++){
+    for (int i = 0; i < N_term; i++){
         adiciona_no(raiz);
     }
 
