@@ -1,6 +1,7 @@
 import pyvista as pv
 import numpy as np
 import sys
+from collections import defaultdict # <-- Adicionado para a lógica de cores
 
 
 def ler_segmentos(path):
@@ -28,6 +29,29 @@ def gerar_png(arquivo_txt, arquivo_png="arvore.png"):
 
     if not segmentos:
         raise ValueError("O arquivo não contém segmentos para desenhar.")
+
+    # --- INÍCIO DA ADIÇÃO: Lógica para colorir galhos irmãos ---
+    adj = defaultdict(list)
+    for p1, p2 in segmentos:
+        adj[p1].append(p2)
+        adj[p2].append(p1)
+
+    # Encontra a raiz no topo (0, 10)
+    raiz = min(adj.keys(), key=lambda p: p[0]**2 + (p[1] - 10.0)**2)
+
+    lados = {raiz: 0}
+    fila = [raiz]
+    visitados = {raiz}
+    while fila:
+        atual = fila.pop(0)
+        filhos = [n for n in adj[atual] if n not in visitados]
+        for i, filho in enumerate(filhos):
+            visitados.add(filho)
+            lados[filho] = (i % 2) + 1
+            fila.append(filho)
+            
+    cores_map = {0: "black", 1: "#1f77b4", 2: "#d62728"} # Tronco, Azul, Vermelho
+    # --- FIM DA ADIÇÃO ---
 
     # Remove pontos duplicados
     pontos_unicos = []
@@ -70,12 +94,14 @@ def gerar_png(arquivo_txt, arquivo_png="arvore.png"):
     plotter = pv.Plotter(off_screen=True, window_size=(1200, 900))
     plotter.set_background("white")
     
-    # Adicionar os segmentos da árvore
-    plotter.add_mesh(
-        malha,
-        color="black",
-        line_width=2,
-    )
+    # Adicionar os segmentos da árvore com suas respectivas cores
+    for p1, p2 in segmentos:
+        lado = lados[p2] if lados.get(p2, 0) != 0 else lados.get(p1, 0)
+        plotter.add_mesh(
+            pv.Line(p1, p2),
+            color=cores_map.get(lado, "black"),
+            line_width=2,
+        )
     
     # Adicionar o círculo (cor cinza, mesma espessura)
     plotter.add_mesh(
