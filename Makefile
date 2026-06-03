@@ -1,28 +1,12 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+CXXFLAGS = -Wall -O3
+TARGET = cco
+SRC = main.cpp
 
-TARGET = main
-PYTHON = python3
-PLOT_SCRIPT = plot.py
-OUTPUT_FILE = arvore.txt
-OUTPUT_PNG =  arvore.png
+all: $(TARGET)
 
-# Argumentos fixos
-ARG1 = 3.0
-ARG2 = 4.0
-
-.PHONY: all run plot clean
-
-all: run plot
-
-$(TARGET): main.cpp
-	$(CXX) $(CXXFLAGS) -o $(TARGET) main.cpp
-
-run: $(TARGET)
-	./$(TARGET) $(ARG1) $(ARG2)
-
-plot: run
-	$(PYTHON) $(PLOT_SCRIPT) $(OUTPUT_FILE) $(OUTPUT_PNG)
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET)
 
 clean:
-	rm -f $(TARGET) $(OUTPUT_FILE)
+	rm -f $(TARGET) arvore.txt
