@@ -9,4 +9,4 @@ $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(TARGET)
 
 clean:
-	rm -f $(TARGET) arvore.txt
+	rm -f $(TARGET) arvore.txt arvore.csv
