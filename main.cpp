@@ -8,6 +8,8 @@
 
 double RAIO = 10.0; // Agora é uma variável global que o main pode alterar
 
+const double PI = 3.14159265358979323846; // pro volume e pra resistencia
+
 using namespace std;
 
 typedef struct {
@@ -31,14 +33,52 @@ typedef struct No {
     Ponto ponto;
     int id;
 
-    No() : esq(nullptr), dir(nullptr), pai(nullptr), ponto(), id(proximoId++) {}
+    //* Campos fisicos novos do MiniCCO-1
+    double raio;
+    double comprimento;
+    double fluxo;
+    double resistencia;
+    double volume;
+    int qtd_term_distal;
+
+    No() : esq(nullptr), dir(nullptr), pai(nullptr), ponto(), id(proximoId++),
+           raio(0.0), comprimento(0.0), fluxo(0.0),
+           resistencia(0.0), volume(0.0), qtd_term_distal(0) {}
 } No;
 
 int No::proximoId = 0;
 
+typedef No* ptrNo;
+
 double dist_euclidiana(Ponto p1, Ponto p2) {
     return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2));
 }
+
+
+//* MiniCCO-1 Parte A: comprimento, resistencia e volume dos segmentos
+
+// Lembrando: o segmento de um no vai do PAI dele ate ele.
+// A raiz nao tem pai, entao nao representa um segmento (comprimento 0)
+double calcula_comprimento(ptrNo seg){
+    if (seg == nullptr || seg->pai == nullptr){
+        return 0.0;
+    }
+    return dist_euclidiana(seg->ponto, seg->pai->ponto);
+}
+
+// Resistencia hidraulica pela Lei de Poiseuille: R = 8*mu*l / (pi * r^4)
+double calcula_resistencia(double mu, double comprimento, double raio){
+    if (raio <= 0.0){
+        return 0.0; //? sem raio definido ainda nao da pra calcular
+    }
+    return (8.0 * mu * comprimento) / (PI * pow(raio, 4));
+}
+
+// Volume de um segmento cilindrico: V = pi * r^2 * l
+double calcula_volume(double comprimento, double raio){
+    return PI * pow(raio, 2) * comprimento;
+}
+
 
 // Isso aqui é uma solução que tava no stack overflow e so funciona e é isso 
 double gera_double_aleatorio(double min = -10, double max = RAIO) {
@@ -256,7 +296,7 @@ void adiciona_no(No* raiz){
     
     novo->pai = bifurcacao;
 
-    //TODO Nessas atribuições aqui eu acho que nao deve poder so botar no mesmo lado a moda caralha
+    //TODO Rever essas atribuicoes: talvez nao deva sempre colocar o novo no do mesmo lado
     //* descobrir de qual lado é o filho do melhor segmento
     if (no_segmento->pai->dir == no_segmento){
         //* no_segmento é o filho da direita
@@ -278,13 +318,64 @@ void adiciona_no(No* raiz){
         bifurcacao->dir = novo;
 
     }else{
-        //! ai fudeu
-        cout << "fudeu" << endl;
+        //! caso de erro: nao achou de qual lado esta o filho do melhor segmento
+        cout << "Erro: no_segmento sem relacao de parentesco valida" << endl;
         return;
     }
 }
 
 
+//* Arvorezinha de teste feita na mao pra conferir os calculos
+// Topologia: R (raiz) -> B (bifurcacao) -> T1 e T2 (terminais)
+// Coordenadas em unidades arbitrarias, escolhidas pra dar 3-4-5 (contas redondas)
+ptrNo monta_arvore_teste(){
+    ptrNo R  = new No; R->ponto  = {0.0, 6.0};   // raiz, sem pai
+    ptrNo B  = new No; B->ponto  = {0.0, 3.0};   // bifurcacao
+    ptrNo T1 = new No; T1->ponto = {-4.0, 0.0};  // terminal esquerdo
+    ptrNo T2 = new No; T2->ponto = {4.0, 0.0};   // terminal direito
+
+    R->esq = B;   B->pai = R;
+    B->esq = T1;  T1->pai = B;
+    B->dir = T2;  T2->pai = B;
+
+    return R;
+}
+
+int main_teste(){
+
+    ptrNo raiz = monta_arvore_teste();
+
+    // Coloco os raios na mao so pra testar volume e resistencia.
+    //? No MiniCCO-1 real esses raios saem da escala por fluxo (proximo commit)
+    raiz->raio           = 2.0; // R
+    raiz->esq->raio      = 2.0; // B
+    raiz->esq->esq->raio = 1.0; // T1
+    raiz->esq->dir->raio = 1.0; // T2
+
+    double mu = 3.6e-3; // viscosidade sugerida no enunciado
+
+    ptrNo nos[]        = { raiz, raiz->esq, raiz->esq->esq, raiz->esq->dir };
+    const char* nomes[] = { "R (raiz) ", "B (bifurc)", "T1       ", "T2       " };
+
+    for (int i = 0; i < 4; i++){
+        ptrNo n = nos[i];
+        double l = calcula_comprimento(n);
+        double v = calcula_volume(l, n->raio);
+        double r = calcula_resistencia(mu, l, n->raio);
+
+        cout << nomes[i]
+             << " | comprimento = " << l
+             << " | raio = " << n->raio
+             << " | volume = " << v
+             << " | resistencia = " << r << endl;
+    }
+
+    return 0;
+}
+
+
+// /*
+//* main original do MiniCCO-0 - descomentar na hora da integracao com a parte do parceiro
 int main(int argc, char *argv[]) {
 
     // Verifica se passou 2 argumentos
@@ -309,3 +400,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+// */
