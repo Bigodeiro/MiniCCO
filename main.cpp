@@ -80,8 +80,121 @@ double calcula_volume(double comprimento, double raio){
 }
 
 
+//* MiniCCO-1 Parte B: contagem de terminais distais (pos-ordem)
+
+// Percorre em pos-ordem: visita os filhos primeiro, depois preenche o no atual.
+// Folha (sem filhos) conta como 1; no interno eh a soma dos dois filhos.
+int atualiza_qtd_terminais_distais(ptrNo no){
+    if (no == nullptr){
+        return 0;
+    }
+
+    //* no terminal: nao tem filhos
+    if (no->esq == nullptr && no->dir == nullptr){
+        no->qtd_term_distal = 1;
+        return 1;
+    }
+
+    // pos-ordem de verdade: primeiro desce nos filhos, depois soma
+    int total = atualiza_qtd_terminais_distais(no->esq)
+              + atualiza_qtd_terminais_distais(no->dir);
+
+    no->qtd_term_distal = total;
+    return total;
+}
+
+
+//* MiniCCO-1 Parte C: fluxo em cada segmento
+
+// Fluxos terminais iguais: o fluxo de um segmento eh proporcional ao numero
+// de terminais que ele alimenta. Qj = qtd_term_distal(j) * Qterm
+void atualiza_fluxos(ptrNo no, double Qterm){
+    if (no == nullptr){
+        return;
+    }
+    no->fluxo = no->qtd_term_distal * Qterm;
+    atualiza_fluxos(no->esq, Qterm);
+    atualiza_fluxos(no->dir, Qterm);
+}
+
+
+//* MiniCCO-1 Parte D: lei de bifurcacao e escala dos raios
+
+// Raio bruto de cada segmento a partir do fluxo: r = C * Q^(1/gamma), com C = 1
+void atualiza_raios_por_fluxo(ptrNo no, double gamma){
+    if (no == nullptr){
+        return;
+    }
+    no->raio = pow(no->fluxo, 1.0 / gamma);
+    atualiza_raios_por_fluxo(no->esq, gamma);
+    atualiza_raios_por_fluxo(no->dir, gamma);
+}
+
+// Normaliza todos os raios dividindo pelo raio da raiz (a raiz fica com raio 1)
+void normaliza_raios(ptrNo no, double raio_raiz){
+    if (no == nullptr || raio_raiz <= 0.0){
+        return;
+    }
+    no->raio = no->raio / raio_raiz;
+    normaliza_raios(no->esq, raio_raiz);
+    normaliza_raios(no->dir, raio_raiz);
+}
+
+// Preenche comprimento, resistencia e volume de cada no usando as funcoes da Parte A
+void atualiza_geometria_segmentos(ptrNo no, double mu){
+    if (no == nullptr){
+        return;
+    }
+    no->comprimento = calcula_comprimento(no);
+    no->resistencia = calcula_resistencia(mu, no->comprimento, no->raio);
+    no->volume      = calcula_volume(no->comprimento, no->raio);
+    atualiza_geometria_segmentos(no->esq, mu);
+    atualiza_geometria_segmentos(no->dir, mu);
+}
+
+//* Orquestrador: transforma uma arvore geometrica em arvore fisica completa.
+// A ordem aqui NAO pode mudar: cada passo depende do anterior.
+void atualiza_geometria_fisica(ptrNo raiz, double Qterm, double gamma, double mu){
+    // 1. quantidade de terminais distais (pos-ordem)
+    atualiza_qtd_terminais_distais(raiz);
+
+    // 2. fluxos
+    atualiza_fluxos(raiz, Qterm);
+
+    // 3. raios: primeiro o bruto (Q^(1/gamma)), depois normaliza pela raiz
+    atualiza_raios_por_fluxo(raiz, gamma);
+    if (raiz != nullptr){
+        normaliza_raios(raiz, raiz->raio);
+    }
+
+    // 4, 5, 6. comprimentos, resistencias e volumes
+    atualiza_geometria_segmentos(raiz, mu);
+}
+
+
+//* MiniCCO-1 Parte A (fechamento) + Parte E: volume total e funcao custo
+
+// Soma o volume de todos os segmentos da arvore.
+// Pre-condicao: atualiza_geometria_fisica ja foi chamada (campos volume preenchidos).
+double calcula_volume_total(ptrNo raiz){
+    if (raiz == nullptr){
+        return 0.0;
+    }
+    return raiz->volume
+         + calcula_volume_total(raiz->esq)
+         + calcula_volume_total(raiz->dir);
+}
+
+// Parte E: a funcao custo do MiniCCO-1 eh o volume intravascular total.
+// Eh o que o motor de otimizacao (partes F/G) vai minimizar.
+double funcao_custo_volume(ptrNo raiz){
+    return calcula_volume_total(raiz);
+}
+
+
 // Isso aqui é uma solução que tava no stack overflow e so funciona e é isso 
-double gera_double_aleatorio(double min = -10, double max = RAIO) {
+// Correcao MiniCCO-0: o min agora escala com o RAIO (antes era -10 fixo)
+double gera_double_aleatorio(double min = -RAIO, double max = RAIO) {
     static random_device rd;
     static mt19937 gen(rd());
     uniform_real_distribution<double> dist(min, max);
@@ -93,9 +206,10 @@ double gera_double_aleatorio(double min = -10, double max = RAIO) {
 Ponto gera_ponto_aleatorio(){
     Ponto p;
 
+    // Correcao MiniCCO-0: o raio do circulo agora eh o RAIO (antes era 10 fixo)
     do{
         p = {gera_double_aleatorio(), gera_double_aleatorio()};
-    } while (dist_euclidiana(p, {0,0}) > 10);
+    } while (dist_euclidiana(p, {0,0}) > RAIO);
     
     return p;
 }
@@ -126,6 +240,40 @@ void salva_segmentos_em_txt(No* raiz, const string& nome_arquivo) {
     dfs(raiz);
 }
 
+//* Exporta os segmentos da arvore em CSV (formato pedido no enunciado do MiniCCO-1).
+// Cada segmento vai do PAI (proximal, x0/y0) ate o no (distal, x1/y1).
+// A raiz nao vira linha porque nao representa um segmento (nao tem pai).
+void salva_segmentos_em_csv(ptrNo raiz, const string& nome_arquivo){
+    ofstream out(nome_arquivo);
+    if (!out.is_open()){
+        throw runtime_error("Nao foi possivel abrir o arquivo CSV de saida.");
+    }
+
+    // cabecalho com os campos pedidos no enunciado
+    out << "id,pai,x0,y0,x1,y1,raio,comprimento,fluxo,resistencia,volume\n";
+
+    function<void(ptrNo)> dfs = [&](ptrNo no){
+        if (no == nullptr) return;
+
+        if (no->pai != nullptr){ //? so vira linha quem tem segmento (tem pai)
+            out << no->id << ","
+                << no->pai->id << ","
+                << no->pai->ponto.x << "," << no->pai->ponto.y << ","
+                << no->ponto.x << "," << no->ponto.y << ","
+                << no->raio << ","
+                << no->comprimento << ","
+                << no->fluxo << ","
+                << no->resistencia << ","
+                << no->volume << "\n";
+        }
+
+        dfs(no->esq);
+        dfs(no->dir);
+    };
+
+    dfs(raiz);
+}
+
 No* inicializa_arvore(){
     No *raiz = new No;
     raiz->ponto = {0.0, RAIO};
@@ -133,10 +281,12 @@ No* inicializa_arvore(){
     No* filho = new No;
 
 
-    //TODO Fazer esse primeiro Nó seguir aa distancia la que ele quer
+    // Correcao MiniCCO-0: a distancia minima do primeiro filho a raiz agora
+    // escala com o RAIO (antes era 15 fixo, que travava a geracao pra raios pequenos).
+    // 1.5*RAIO sempre eh alcancavel porque a distancia maxima no circulo eh 2*RAIO.
     do{
         filho->ponto = gera_ponto_aleatorio();
-    }while(dist_euclidiana(raiz->ponto, filho->ponto) < 15);
+    }while(dist_euclidiana(raiz->ponto, filho->ponto) < 1.5 * RAIO);
 
     filho->pai = raiz;
 
@@ -341,41 +491,46 @@ ptrNo monta_arvore_teste(){
     return R;
 }
 
-int main_teste(){
-
+int main(){
     ptrNo raiz = monta_arvore_teste();
 
-    // Coloco os raios na mao so pra testar volume e resistencia.
-    //? No MiniCCO-1 real esses raios saem da escala por fluxo (proximo commit)
-    raiz->raio           = 2.0; // R
-    raiz->esq->raio      = 2.0; // B
-    raiz->esq->esq->raio = 1.0; // T1
-    raiz->esq->dir->raio = 1.0; // T2
+    double Qterm = 1.0;    // fluxo terminal (valor redondo so pro teste)
+    double gamma = 3.0;    // expoente da lei de bifurcacao
+    double mu    = 3.6e-3; // viscosidade sugerida no enunciado
 
-    double mu = 3.6e-3; // viscosidade sugerida no enunciado
+    // Transforma a arvore geometrica em arvore fisica completa
+    atualiza_geometria_fisica(raiz, Qterm, gamma, mu);
 
-    ptrNo nos[]        = { raiz, raiz->esq, raiz->esq->esq, raiz->esq->dir };
+    ptrNo nos[]         = { raiz, raiz->esq, raiz->esq->esq, raiz->esq->dir };
     const char* nomes[] = { "R (raiz) ", "B (bifurc)", "T1       ", "T2       " };
+
+    double volume_total = 0.0;
 
     for (int i = 0; i < 4; i++){
         ptrNo n = nos[i];
-        double l = calcula_comprimento(n);
-        double v = calcula_volume(l, n->raio);
-        double r = calcula_resistencia(mu, l, n->raio);
-
         cout << nomes[i]
-             << " | comprimento = " << l
+             << " | term_distal = " << n->qtd_term_distal
+             << " | fluxo = " << n->fluxo
              << " | raio = " << n->raio
-             << " | volume = " << v
-             << " | resistencia = " << r << endl;
+             << " | compr = " << n->comprimento
+             << " | volume = " << n->volume
+             << " | resist = " << n->resistencia << endl;
+        volume_total += n->volume;
     }
+
+    cout << "Volume total (soma manual) = " << volume_total << endl;
+    cout << "funcao_custo_volume        = " << funcao_custo_volume(raiz) << endl;
+
+    // Exporta o CSV com os campos pedidos no enunciado
+    salva_segmentos_em_csv(raiz, "arvore.csv");
+    cout << "CSV salvo em arvore.csv" << endl;
 
     return 0;
 }
 
 
-// /*
-//* main original do MiniCCO-0 - descomentar na hora da integracao com a parte do parceiro
+// main original do MiniCCO-0 - descomentar na hora da integracao com a parte do parceiro
+/*
 int main(int argc, char *argv[]) {
 
     // Verifica se passou 2 argumentos
@@ -400,4 +555,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-// */
+*/
