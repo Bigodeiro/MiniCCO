@@ -6,9 +6,9 @@
 #include <functional>
 #include <stdexcept>
 
-double RAIO = 10.0; // Agora é uma variável global que o main pode alterar
+double RAIO = 10.0;
 
-const double PI = 3.14159265358979323846; // pro volume e pra resistencia
+const double PI = 3.14159265358979323846;
 
 using namespace std;
 
@@ -33,7 +33,6 @@ typedef struct No {
     Ponto ponto;
     int id;
 
-    //* Campos fisicos novos do MiniCCO-1
     double raio;
     double comprimento;
     double fluxo;
@@ -54,8 +53,6 @@ double dist_euclidiana(Ponto p1, Ponto p2) {
     return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2));
 }
 
-
-//* MiniCCO-1 Parte A: comprimento, resistencia e volume dos segmentos
 
 // Lembrando: o segmento de um no vai do PAI dele ate ele.
 // A raiz nao tem pai, entao nao representa um segmento (comprimento 0)
@@ -80,8 +77,6 @@ double calcula_volume(double comprimento, double raio){
 }
 
 
-//* MiniCCO-1 Parte B: contagem de terminais distais (pos-ordem)
-
 // Percorre em pos-ordem: visita os filhos primeiro, depois preenche o no atual.
 // Folha (sem filhos) conta como 1; no interno eh a soma dos dois filhos.
 int atualiza_qtd_terminais_distais(ptrNo no){
@@ -103,8 +98,6 @@ int atualiza_qtd_terminais_distais(ptrNo no){
     return total;
 }
 
-
-//* MiniCCO-1 Parte C: fluxo em cada segmento
 
 // Fluxos terminais iguais: o fluxo de um segmento eh proporcional ao numero
 // de terminais que ele alimenta. Qj = qtd_term_distal(j) * Qterm
@@ -167,15 +160,10 @@ void atualiza_geometria_fisica(ptrNo raiz, double Qterm, double gamma, double mu
         normaliza_raios(raiz, raiz->raio);
     }
 
-    // 4, 5, 6. comprimentos, resistencias e volumes
     atualiza_geometria_segmentos(raiz, mu);
 }
 
 
-//* MiniCCO-1 Parte A (fechamento) + Parte E: volume total e funcao custo
-
-// Soma o volume de todos os segmentos da arvore.
-// Pre-condicao: atualiza_geometria_fisica ja foi chamada (campos volume preenchidos).
 double calcula_volume_total(ptrNo raiz){
     if (raiz == nullptr){
         return 0.0;
@@ -185,15 +173,11 @@ double calcula_volume_total(ptrNo raiz){
          + calcula_volume_total(raiz->dir);
 }
 
-// Parte E: a funcao custo do MiniCCO-1 eh o volume intravascular total.
-// Eh o que o motor de otimizacao (partes F/G) vai minimizar.
 double funcao_custo_volume(ptrNo raiz){
     return calcula_volume_total(raiz);
 }
 
 
-// Isso aqui é uma solução que tava no stack overflow e so funciona e é isso 
-// Correcao MiniCCO-0: o min agora escala com o RAIO (antes era -10 fixo)
 double gera_double_aleatorio(double min = -RAIO, double max = RAIO) {
     static random_device rd;
     static mt19937 gen(rd());
@@ -206,7 +190,6 @@ double gera_double_aleatorio(double min = -RAIO, double max = RAIO) {
 Ponto gera_ponto_aleatorio(){
     Ponto p;
 
-    // Correcao MiniCCO-0: o raio do circulo agora eh o RAIO (antes era 10 fixo)
     do{
         p = {gera_double_aleatorio(), gera_double_aleatorio()};
     } while (dist_euclidiana(p, {0,0}) > RAIO);
@@ -214,7 +197,6 @@ Ponto gera_ponto_aleatorio(){
     return p;
 }
 
-// Essa função 100% gepetada mas ta funcionando, depois temo q ver ela certinho
 void salva_segmentos_em_txt(No* raiz, const string& nome_arquivo) {
     ofstream out(nome_arquivo);
     if (!out.is_open()) {
@@ -280,10 +262,6 @@ No* inicializa_arvore(){
 
     No* filho = new No;
 
-
-    // Correcao MiniCCO-0: a distancia minima do primeiro filho a raiz agora
-    // escala com o RAIO (antes era 15 fixo, que travava a geracao pra raios pequenos).
-    // 1.5*RAIO sempre eh alcancavel porque a distancia maxima no circulo eh 2*RAIO.
     do{
         filho->ponto = gera_ponto_aleatorio();
     }while(dist_euclidiana(raiz->ponto, filho->ponto) < 1.5 * RAIO);
@@ -301,7 +279,6 @@ No* inicializa_arvore(){
 }
 
 
-//TODO função gepetada que precisa ser revisada e entendida 
 //* Função que calcula a distancia entre um ponto e um segmento
 double dist_ponto_seg(Ponto p0, No* seg){
     if (seg == nullptr)
@@ -347,8 +324,6 @@ double dist_ponto_seg(Ponto p0, No* seg){
     return sqrt(dx*dx + dy*dy);
 }
 
-//TODO Sessãao 6 do PDF, tem varios jeitos de decidir o melhor segmento e todos dependem do score que dá pra cada segmento, esse é o maais básico e da pra melhorar
-//* Essa funçãao vai retornar algum nó da arvore, e o melhor segmento vai ser entre esse nó e o pai dele
 No* melhor_segmento(No* raiz, Ponto p){
 
     if (raiz == nullptr)
@@ -386,9 +361,6 @@ No* melhor_segmento(No* raiz, Ponto p){
     
     return menor;
 }
-
-
-// Parte que Caua mudou: Critério de Distância 
 
 // Função auxiliar para varrer a árvore inteira e descobrir qual a menor distância do novo ponto para QUALQUER segmento existente
 void calcula_dist_minima_arvore(No* no, Ponto p, double &min_dist) {
@@ -446,7 +418,6 @@ void adiciona_no(No* raiz){
     
     novo->pai = bifurcacao;
 
-    //TODO Rever essas atribuicoes: talvez nao deva sempre colocar o novo no do mesmo lado
     //* descobrir de qual lado é o filho do melhor segmento
     if (no_segmento->pai->dir == no_segmento){
         //* no_segmento é o filho da direita
@@ -491,12 +462,13 @@ ptrNo monta_arvore_teste(){
     return R;
 }
 
+// main de teste para testar a implementação da parte física (fluxos, raios, resistências, volumes)
 int main(){
     ptrNo raiz = monta_arvore_teste();
 
-    double Qterm = 1.0;    // fluxo terminal (valor redondo so pro teste)
-    double gamma = 3.0;    // expoente da lei de bifurcacao
-    double mu    = 3.6e-3; // viscosidade sugerida no enunciado
+    double Qterm = 1.0;
+    double gamma = 3.0;
+    double mu    = 3.6e-3;
 
     // Transforma a arvore geometrica em arvore fisica completa
     atualiza_geometria_fisica(raiz, Qterm, gamma, mu);
@@ -529,7 +501,7 @@ int main(){
 }
 
 
-// main original do MiniCCO-0 - descomentar na hora da integracao com a parte do parceiro
+// main original antes da implementação da parte fisica 
 /*
 int main(int argc, char *argv[]) {
 
